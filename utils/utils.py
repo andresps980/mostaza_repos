@@ -2,7 +2,7 @@ import json
 import csv
 import os
 from datetime import datetime, timedelta
-from repos.types_repo.types_repo import Pase, FilaRepo, Repo
+from mostaza_repos.types_repo.types_repo import Pase, FilaRepo, Repo
 
 
 def clave_valor(cadena):
