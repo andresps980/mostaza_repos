@@ -1,0 +1,35 @@
+{
+    "repos": [
+      {
+		"nombreRepo": "nombreCampaign_otrosdatos.csv",
+        "CampaignID": 100,
+        "repos": "1",
+        "fechaComienzo": "2023-05-31 22:38:10",
+        "fechaFin": "2023-06-30 22:38:10",
+		"pases_dia": [
+			{
+				"dia": "2023-05-31",
+				"pases": [
+					{
+						"comienzo": "22:38:10",
+						"fin": "22:46:15"
+					},
+					{
+						"comienzo": "23:38:10",
+						"fin": "23:46:15"
+					}
+				]
+			},
+			{
+				"dia": "2023-06-01",
+				"pases": [
+					{
+						"comienzo": "22:30:10",
+						"fin": "22:38:10"
+					}
+				]
+			}
+		]
+      }
+    ]
+}
