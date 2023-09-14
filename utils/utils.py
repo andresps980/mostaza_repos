@@ -267,7 +267,7 @@ def hacer_repo(repo_obj):
 
                     # unicos_acum
                     if existe_prev:
-                        dato.unicos_acumulados = datos_prev[index_pase].usuarios_dia_dif + dato.usuarios_dia_dif
+                        dato.unicos_acumulados = datos_prev[index_pase].unicos_acumulados + dato.usuarios_dia_dif
                         fila_datos.append(str(dato.unicos_acumulados))
                     else:
                         fila_datos.append(str(dato.usuarios_dia_dif))
