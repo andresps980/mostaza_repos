@@ -95,13 +95,14 @@ def lectura_configuracion(repo):
 
 
 def encuentra_pase(repo_obj, new_date, dia):
-    filas_repo = repo_obj.filas[dia]
+    filas_repo = repo_obj.filas.get(dia)
+
+    if filas_repo is None:
+        return None
 
     for pase in filas_repo.pases:
         if pase.fecha_comienzo <= new_date <= pase.fecha_fin:
             return pase
-
-    return None
 
 
 def extrae_datos(linea):
@@ -120,7 +121,7 @@ def extrae_datos(linea):
     return timestamp, user_id, campaign_id
 
 
-def procesa_repo(repo_obj):
+def procesa_repo(repo_obj, args, logger):
     if repo_obj.tipo_repo == 1:
         # Campos interesantes en lineas de logs, campo 11?:
         #   Fecha inicial
@@ -128,12 +129,18 @@ def procesa_repo(repo_obj):
         #   CampaignID
         #   messageType
         #   user_id
-        logs_dir = './logs/'
+        logs_dir = args.DirLogs
         contenido = os.listdir(logs_dir)
+        cont = 1
         for fichero in contenido:
+            logger.info(f'Procesando fichero {fichero} numero {cont} de {len(contenido)}')
+            cont += 1
+
             if os.path.isfile(os.path.join(logs_dir, fichero)) and fichero.endswith('.log'):
                 with open(logs_dir + fichero, 'r') as fichero_log:
+                    cont_linea = 0
                     for linea in fichero_log.readlines():
+                        cont_linea += 1
                         # Filtro 1: Sino es este tipo de mensaje no lo procesamos
                         if 'messageType=2' in linea:
                             linea_splitted = linea.split()
@@ -155,15 +162,14 @@ def procesa_repo(repo_obj):
 
                                 # Filtro 2: Si la traza no esta en el periodo de validez de la campaña no la procesamos
                                 if new_date < repo_obj.fecha_comienzo or new_date > repo_obj.fecha_fin:
-                                    print("Linea no procesada!!!")
-                                    print(linea)
+                                    logger.debug(f'Linea no procesada, filtro 2, numero linea:  {cont_linea}')
                                     continue
 
-                                # Filtro 3: Si la traza no esta dentro del periodo de validez de algun pase no la procesamos
+                                # Filtro 3: Si la traza no esta dentro del periodo de validez de algun pase no la
+                                # procesamos
                                 pase = encuentra_pase(repo_obj, new_date, dia)
                                 if pase is None:
-                                    print("Linea no procesada!!!")
-                                    print(linea)
+                                    logger.debug(f'Linea no procesada, filtro 3, numero linea:  {cont_linea}')
                                     continue
 
                                 linea_info = ""
@@ -185,21 +191,22 @@ def procesa_repo(repo_obj):
                                                 pase.usuarios[user_id] = 1
                                             else:
                                                 pase.usuarios[user_id] = pase.usuarios[user_id] + 1
-                                        else:
-                                            print("Linea no procesada!!!")
-                                            print(linea_info)
+                                        # else:
+                                        #     print("Linea no procesada!!!")
+                                        #     print(linea_info)
 
                             except Exception as excep:
-                                print(excep)
-                        else:
-                            print("Linea no procesada!!!")
-                            print(linea)
+                                logger.error("Exception procesando logs", exc_info=True)
+
+                        # else:
+                            # print("Linea no procesada!!!")
+                            # print(linea)
 
     else:
-        print("Error, Version 1 solo procesamos repos tipo 1. nombre repo no valido: " + repo_obj.nombre_repo)
+        logger.info("Error, Version 1 solo procesamos repos tipo 1. nombre repo no valido: " + repo_obj.nombre_repo)
 
 
-def hacer_repo(repo_obj):
+def hacer_repo(repo_obj, args, logger):
     now = datetime.now()
 
     lista_pases = [""]
@@ -299,7 +306,7 @@ def hacer_repo(repo_obj):
             temp_date += timedelta(days=1)
 
 
-def cargar_repos():
+def cargar_repos(args, logger):
     with open("config/config.json") as file:
         dic = json.load(file)
 
@@ -307,33 +314,29 @@ def cargar_repos():
     config_repos = []
 
     try:
-        repo_actual = ""
         for repo in list_repos:
-            print('------CREANDO CONFIG REPO -------------------')
-            repo_actual = repo['nombreRepo']
-            print("Nombre repo: " + repo['nombreRepo'])
-            print("Campaña: " + str(repo['CampaignID']))
+            logger.info('\tCREANDO CONFIG REPO')
+            logger.info('\tNombre repo: ' + repo['nombreRepo'])
+            logger.info('\tCampaña: ' + str(repo['CampaignID']))
 
             repo_obj = lectura_configuracion(repo)
             config_repos.append(repo_obj)
 
-            print('---------------------------------------')
     except Exception as e:
-        print(f"Error leyendo config.json, error '{e}'")
-        print(f"Ultimo repo tratado: '{repo_actual}'")
+        logger.error("Exception tratando la configuración", exc_info=True)
     finally:
-        print(f"Fin lectura configuración")
+        logger.info('Fin lectura configuración')
         return config_repos
 
 
-def procesa_repos(config_repos):
+def procesa_repos(config_repos, args, logger):
 
     # TODO Cambiar esto para lanzar cada repo en un proceso...
     for repo_obj in config_repos:
         try:
-            procesa_repo(repo_obj)
-            hacer_repo(repo_obj)
+            procesa_repo(repo_obj, args, logger)
+            hacer_repo(repo_obj, args, logger)
         except Exception as e:
-            print(f"Error procesando repo {repo_obj.nombre_repo}, error '{e}'")
+            logger.error(f"Error procesando repo {repo_obj.nombre_repo}", exc_info=True)
         finally:
-            print(f"Fin procesando repo {repo_obj.nombre_repo}")
+            logger.info(f"Fin procesando repo {repo_obj.nombre_repo}")
