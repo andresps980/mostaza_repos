@@ -3,6 +3,7 @@ import csv
 import os
 from datetime import datetime, timedelta
 from mostaza_repos.types_repo.types_repo import Pase, FilaRepo, Repo
+import matplotlib.pyplot as plt
 
 
 def clave_valor(cadena):
@@ -307,6 +308,36 @@ def hacer_repo(repo_obj, args, logger):
             temp_date += timedelta(days=1)
 
 
+def dibuja_grafica(repo_obj, args, logger):
+    # Ahora añadimos los datos de cada dia por fila y pase...
+    temp_date = repo_obj.fecha_comienzo
+
+    fila_dias = []
+    fila_impactos = []
+    while temp_date <= repo_obj.fecha_fin:
+        dia_ini = temp_date.strftime("%Y-%m-%d")
+        fila_dias.append(dia_ini)
+        datos = repo_obj.filas.get(dia_ini)
+        if datos is None:
+            # datos_prev sera el anterior guardado para cada pase...
+            fila_impactos.append(0)
+        else:
+            sum_pases = 0
+            for dato in datos.pases:
+                sum_pases += dato.impactos_dia
+            fila_impactos.append(sum_pases)
+
+        temp_date += timedelta(days=1)
+
+    fig, ax = plt.subplots()
+    ax.bar(fila_dias, fila_impactos)
+    ax.set_ylabel('fruit supply')
+    ax.set_title('Fruit supply by kind and color')
+    ax.legend(title='Fruit color')
+
+    plt.show()
+
+
 def cargar_repos(args, logger):
     with open("config/config.json") as file:
         dic = json.load(file)
@@ -337,6 +368,7 @@ def procesa_repos(config_repos, args, logger):
         try:
             procesa_repo(repo_obj, args, logger)
             hacer_repo(repo_obj, args, logger)
+            dibuja_grafica(repo_obj, args, logger)
         except Exception as e:
             logger.error(f"Error procesando repo {repo_obj.nombre_repo}", exc_info=True)
         finally:
