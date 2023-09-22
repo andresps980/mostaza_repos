@@ -210,15 +210,14 @@ def procesa_repo(repo_obj, args, logger):
 def hacer_repo(repo_obj, args, logger):
     now = datetime.now()
 
+    lista_titulos = ["FECHA", "HORA INICIAL", "impactos_dia", "impactos_acum", "usuarios_dia", "usuarios_dia_dif",
+                     "unicos_acum"]
+    lista_titulos_final = lista_titulos * repo_obj.max_pases
+    lista_pases_temp = ["", "", "", "", "", ""]
     lista_pases = [""]
-    lista_titulos = ["impactos_dia", "impactos_acum", "usuarios_dia", "usuarios_dia_dif", "unicos_acum"]
-    lista_titulos_final = ["FECHA"] + lista_titulos * repo_obj.max_pases
     for count in range(repo_obj.max_pases):
         lista_pases.append("Pase " + str(count + 1))
-        lista_pases.append("")
-        lista_pases.append("")
-        lista_pases.append("")
-        lista_pases.append("")
+        lista_pases += lista_pases_temp
 
     ubicacion_repo_final = args.OutputDir + now.strftime("%d-%m-%Y_%H-%M-%S_") + repo_obj.nombre_repo
     with open(ubicacion_repo_final, 'w', newline='') as f:
@@ -228,14 +227,18 @@ def hacer_repo(repo_obj, args, logger):
 
         # Ahora añadimos los datos de cada dia por fila y pase...
         temp_date = repo_obj.fecha_comienzo
-        datos_prev = []
+        datos_prev_pases = []
         while temp_date <= repo_obj.fecha_fin:
             dia_ini = temp_date.strftime("%Y-%m-%d")
-            fila_datos = [dia_ini]
             datos = repo_obj.filas.get(dia_ini)
+            fila_datos = []
             if datos is None:
-                # datos_prev sera el anterior guardado para cada pase...
-                for dato in datos_prev:
+                # datos_prev_pases sera el anterior guardado para cada pase...
+                for dato in datos_prev_pases:
+                    # Dia del repo
+                    fila_datos.append(dia_ini)
+                    # No hay hora del pase
+                    fila_datos.append("N/A")
                     # impactos_dia
                     fila_datos.append(str(0))
                     # impactos_acum
@@ -249,13 +252,17 @@ def hacer_repo(repo_obj, args, logger):
                 writer.writerow(fila_datos)
             else:
                 for dato in datos.pases:
+                    # Dia del repo
+                    fila_datos.append(dia_ini)
+                    # Hora del pase
+                    fila_datos.append(dato.fecha_comienzo.strftime("%H-%M-%S"))
                     index_pase = datos.pases.index(dato)
-                    existe_prev = index_pase < len(datos_prev)
+                    existe_prev = index_pase < len(datos_prev_pases)
                     # impactos_dia
                     fila_datos.append(str(dato.impactos_dia))
                     # impactos_acum
                     if existe_prev:
-                        dato.impactos_acumulados = datos_prev[index_pase].impactos_acumulados + dato.impactos_dia
+                        dato.impactos_acumulados = datos_prev_pases[index_pase].impactos_acumulados + dato.impactos_dia
                         fila_datos.append(str(dato.impactos_acumulados))
                     else:
                         fila_datos.append(str(dato.impactos_dia))
@@ -266,7 +273,7 @@ def hacer_repo(repo_obj, args, logger):
                     # usuarios_dia_dif
                     if existe_prev:
                         list_actual = dato.usuarios.keys()
-                        list_anterior = datos_prev[index_pase].usuarios.keys()
+                        list_anterior = datos_prev_pases[index_pase].usuarios.keys()
                         difference = list(set(list_actual) - set(list_anterior))
                         dato.usuarios_dia_dif = len(difference)
                         fila_datos.append(str(dato.usuarios_dia_dif))
@@ -276,7 +283,7 @@ def hacer_repo(repo_obj, args, logger):
 
                     # unicos_acum
                     if existe_prev:
-                        dato.unicos_acumulados = datos_prev[index_pase].unicos_acumulados + dato.usuarios_dia_dif
+                        dato.unicos_acumulados = datos_prev_pases[index_pase].unicos_acumulados + dato.usuarios_dia_dif
                         fila_datos.append(str(dato.unicos_acumulados))
                     else:
                         fila_datos.append(str(dato.usuarios_dia_dif))
@@ -284,24 +291,28 @@ def hacer_repo(repo_obj, args, logger):
 
                     # Guardamos las cuentas anteriores
                     if existe_prev:
-                        datos_prev[index_pase] = dato
+                        datos_prev_pases[index_pase] = dato
                     else:
-                        datos_prev.append(dato)
+                        datos_prev_pases.append(dato)
 
-                # datos_prev = datos.pases
-                if len(datos.pases) < len(datos_prev):
+                # datos_prev_pases = datos.pases
+                if len(datos.pases) < len(datos_prev_pases):
                     # Debemos completar la fila con los datos previos
-                    for index_pase in range(len(datos.pases), len(datos_prev)):
+                    for index_pase in range(len(datos.pases), len(datos_prev_pases)):
+                        # Dia del repo
+                        fila_datos.append(dia_ini)
+                        # Hora del pase
+                        fila_datos.append("N/A")
                         # impactos_dia
                         fila_datos.append(str(0))
                         # impactos_acum
-                        fila_datos.append(str(datos_prev[index_pase].impactos_acumulados))
+                        fila_datos.append(str(datos_prev_pases[index_pase].impactos_acumulados))
                         # usuarios_dia
                         fila_datos.append(str(0))
                         # usuarios_dia_dif
                         fila_datos.append(str(0))
                         # unicos_acum
-                        fila_datos.append(str(datos_prev[index_pase].unicos_acumulados))
+                        fila_datos.append(str(datos_prev_pases[index_pase].unicos_acumulados))
 
                 writer.writerow(fila_datos)
 
@@ -332,7 +343,6 @@ def cargar_repos(args, logger):
 
 
 def procesa_repos(config_repos, args, logger):
-
     # TODO Cambiar esto para lanzar cada repo en un proceso...
     for repo_obj in config_repos:
         try:
