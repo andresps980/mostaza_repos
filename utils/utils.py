@@ -220,7 +220,8 @@ def hacer_repo(repo_obj, args, logger):
         lista_pases.append("")
         lista_pases.append("")
 
-    with open(now.strftime("%d-%m-%Y_%H-%M-%S_") + repo_obj.nombre_repo, 'w', newline='') as f:
+    ubicacion_repo_final = args.OutputDir + now.strftime("%d-%m-%Y_%H-%M-%S_") + repo_obj.nombre_repo
+    with open(ubicacion_repo_final, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(lista_pases)
         writer.writerow(lista_titulos_final)

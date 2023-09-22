@@ -1,5 +1,7 @@
 import logging
 import argparse
+import os.path
+
 from utils.utils import cargar_repos, procesa_repo, hacer_repo, procesa_repos
 
 
@@ -7,7 +9,10 @@ def argumentos_validos():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-ll", "--LogLevel", help="Nivel de log", default="INFO")
-    parser.add_argument("-dl", "--DirLogs", help="Directorio donde se ubicaran los logs", default="./logs/")
+    parser.add_argument("-dl", "--DirLogs", help="Directorio donde se ubicaran los archivos a tratar, deberan ser "
+                                                 "archivos con extension .log", default="./logs/")
+    parser.add_argument("-od", "--OutputDir", help="Directorio donde se ubicaran los resultados y el archivo de trazas",
+                        default="./")
 
     return parser
 
@@ -22,11 +27,15 @@ def dame_nivel_log(level):
 
 
 def configura_logs(args):
+
+    if not os.path.exists(args.OutputDir):
+        os.mkdir(args.OutputDir)
+
     logger_repos = logging.getLogger(__name__)
 
     # Create handlers
     c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler('file.log', 'a')
+    f_handler = logging.FileHandler(args.OutputDir + 'file.log', 'a')
     c_handler.setLevel(dame_nivel_log(args.LogLevel))
     f_handler.setLevel(dame_nivel_log(args.LogLevel))
 
