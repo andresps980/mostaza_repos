@@ -122,6 +122,7 @@ def extrae_datos(linea):
 
 
 def procesa_repo(repo_obj, args, logger):
+    # TODO meter map-reduce
     if repo_obj.tipo_repo == 1:
         # Campos interesantes en lineas de logs, campo 11?:
         #   Fecha inicial
@@ -190,13 +191,13 @@ def procesa_repo(repo_obj, args, logger):
                                             if pase.usuarios.get(user_id) is None:
                                                 pase.usuarios[user_id] = 1
                                             else:
-                                                pase.usuarios[user_id] = pase.usuarios[user_id] + 1
+                                                pase.usuarios[user_id] += 1
                                         # else:
                                         #     print("Linea no procesada!!!")
                                         #     print(linea_info)
 
                             except Exception as excep:
-                                logger.error("Exception procesando logs", exc_info=True)
+                                logger.error(f"Exception procesando logs, linea {cont_linea}", exc_info=True)
 
                         # else:
                             # print("Linea no procesada!!!")
