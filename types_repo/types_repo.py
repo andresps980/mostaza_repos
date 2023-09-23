@@ -4,6 +4,7 @@ from datetime import datetime
 class Pase:
 
     def __init__(self):
+        self.orden = 0
         self.usuarios = {}
         self.cad_fecha_comienzo = ""
         self.cad_fecha_fin = ""
@@ -48,4 +49,4 @@ class Repo:
         self.cad_fecha_fin = ""
         self.fecha_comienzo = datetime.now()
         self.fecha_fin = datetime.now()
-        self.max_pases = 1
+        self.max_pases = 0

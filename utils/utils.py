@@ -62,6 +62,7 @@ def lectura_configuracion(repo):
         lista_pases_final = []
         for pase in lista_pases:
             pase_final = Pase()
+            pase_final.orden = pase['orden']
             pase_final.cad_fecha_comienzo = dia_pase + " " + pase['comienzo']
             pase_final.cad_fecha_fin = dia_pase + " " + pase['fin']
 
@@ -200,8 +201,8 @@ def procesa_repo(repo_obj, args, logger):
                                 logger.error(f"Exception procesando logs, linea {cont_linea}", exc_info=True)
 
                         # else:
-                            # print("Linea no procesada!!!")
-                            # print(linea)
+                        #    print("Linea no procesada!!!")
+                        #    print(linea)
 
     else:
         logger.info("Error, Version 1 solo procesamos repos tipo 1. nombre repo no valido: " + repo_obj.nombre_repo)
@@ -215,9 +216,11 @@ def hacer_repo(repo_obj, args, logger):
     lista_titulos_final = lista_titulos * repo_obj.max_pases
     lista_pases_temp = ["", "", "", "", "", ""]
     lista_pases = [""]
+    datos_prev_pases = {}
     for count in range(repo_obj.max_pases):
         lista_pases.append("Pase " + str(count + 1))
         lista_pases += lista_pases_temp
+        datos_prev_pases[count + 1] = None
 
     ubicacion_repo_final = args.OutputDir + now.strftime("%d-%m-%Y_%H-%M-%S_") + repo_obj.nombre_repo
     with open(ubicacion_repo_final, 'w', newline='') as f:
@@ -227,42 +230,35 @@ def hacer_repo(repo_obj, args, logger):
 
         # Ahora añadimos los datos de cada dia por fila y pase...
         temp_date = repo_obj.fecha_comienzo
-        datos_prev_pases = []
         while temp_date <= repo_obj.fecha_fin:
             dia_ini = temp_date.strftime("%Y-%m-%d")
             datos = repo_obj.filas.get(dia_ini)
             fila_datos = []
             if datos is None:
                 # datos_prev_pases sera el anterior guardado para cada pase...
-                for dato in datos_prev_pases:
-                    # Dia del repo
-                    fila_datos.append(dia_ini)
-                    # No hay hora del pase
-                    fila_datos.append("N/A")
-                    # impactos_dia
-                    fila_datos.append(str(0))
-                    # impactos_acum
-                    fila_datos.append(str(dato.impactos_acumulados))
-                    # usuarios_dia
-                    fila_datos.append(str(0))
-                    # usuarios_dia_dif
-                    fila_datos.append(str(0))
-                    # unicos_acum
-                    fila_datos.append(str(dato.unicos_acumulados))
+                for count in range(repo_obj.max_pases):
+                    dato = datos_prev_pases.get(count + 1)
+                    rellenar_pase(dato, dia_ini, fila_datos)
                 writer.writerow(fila_datos)
             else:
+                orden_actual = 0
                 for dato in datos.pases:
+                    orden_actual += 1
+                    # Comprobamos si hay que saltar pases antes de rellenar este
+                    for index_pase in range(orden_actual, dato.orden):
+                        orden_actual += 1
+                        rellenar_pase(datos_prev_pases.get(index_pase), dia_ini, fila_datos)
+
                     # Dia del repo
                     fila_datos.append(dia_ini)
                     # Hora del pase
                     fila_datos.append(dato.fecha_comienzo.strftime("%H-%M-%S"))
-                    index_pase = datos.pases.index(dato)
-                    existe_prev = index_pase < len(datos_prev_pases)
+                    existe_prev = datos_prev_pases.get(dato.orden)
                     # impactos_dia
                     fila_datos.append(str(dato.impactos_dia))
                     # impactos_acum
-                    if existe_prev:
-                        dato.impactos_acumulados = datos_prev_pases[index_pase].impactos_acumulados + dato.impactos_dia
+                    if not existe_prev is None:
+                        dato.impactos_acumulados = existe_prev.impactos_acumulados + dato.impactos_dia
                         fila_datos.append(str(dato.impactos_acumulados))
                     else:
                         fila_datos.append(str(dato.impactos_dia))
@@ -271,9 +267,9 @@ def hacer_repo(repo_obj, args, logger):
                     # usuarios_dia
                     fila_datos.append(str(len(dato.usuarios)))
                     # usuarios_dia_dif
-                    if existe_prev:
+                    if not existe_prev is None:
                         list_actual = dato.usuarios.keys()
-                        list_anterior = datos_prev_pases[index_pase].usuarios.keys()
+                        list_anterior = existe_prev.usuarios.keys()
                         difference = list(set(list_actual) - set(list_anterior))
                         dato.usuarios_dia_dif = len(difference)
                         fila_datos.append(str(dato.usuarios_dia_dif))
@@ -282,41 +278,64 @@ def hacer_repo(repo_obj, args, logger):
                         dato.usuarios_dia_dif = len(dato.usuarios)
 
                     # unicos_acum
-                    if existe_prev:
-                        dato.unicos_acumulados = datos_prev_pases[index_pase].unicos_acumulados + dato.usuarios_dia_dif
+                    if not existe_prev is None:
+                        dato.unicos_acumulados = existe_prev.unicos_acumulados + dato.usuarios_dia_dif
                         fila_datos.append(str(dato.unicos_acumulados))
                     else:
                         fila_datos.append(str(dato.usuarios_dia_dif))
                         dato.unicos_acumulados = dato.usuarios_dia_dif
 
-                    # Guardamos las cuentas anteriores
-                    if existe_prev:
-                        datos_prev_pases[index_pase] = dato
-                    else:
-                        datos_prev_pases.append(dato)
+                    # Actualizamos el dato para los siguientes acumulados
+                    datos_prev_pases[dato.orden] = dato
 
-                # datos_prev_pases = datos.pases
-                if len(datos.pases) < len(datos_prev_pases):
-                    # Debemos completar la fila con los datos previos
-                    for index_pase in range(len(datos.pases), len(datos_prev_pases)):
-                        # Dia del repo
-                        fila_datos.append(dia_ini)
-                        # Hora del pase
-                        fila_datos.append("N/A")
-                        # impactos_dia
-                        fila_datos.append(str(0))
-                        # impactos_acum
-                        fila_datos.append(str(datos_prev_pases[index_pase].impactos_acumulados))
-                        # usuarios_dia
-                        fila_datos.append(str(0))
-                        # usuarios_dia_dif
-                        fila_datos.append(str(0))
-                        # unicos_acum
-                        fila_datos.append(str(datos_prev_pases[index_pase].unicos_acumulados))
+                # Rellenamos los pases que no existen en la fila actual con los datos previos
+                for index_pase in range(orden_actual + 1, repo_obj.max_pases + 1):
+                    rellenar_pase(datos_prev_pases.get(index_pase), dia_ini, fila_datos)
 
                 writer.writerow(fila_datos)
 
             temp_date += timedelta(days=1)
+
+
+def rellenar_pase(dato, dia_ini, fila_datos):
+    if dato is None:
+        rellenar_pase_vacio(dia_ini, fila_datos)
+    else:
+        rellenar_pase_prev(dato, dia_ini, fila_datos)
+
+
+def rellenar_pase_prev(dato, dia_ini, fila_datos):
+    # Dia del repo
+    fila_datos.append(dia_ini)
+    # No hay hora del pase
+    fila_datos.append("N/A")
+    # impactos_dia
+    fila_datos.append(str(0))
+    # impactos_acum
+    fila_datos.append(str(dato.impactos_acumulados))
+    # usuarios_dia
+    fila_datos.append(str(0))
+    # usuarios_dia_dif
+    fila_datos.append(str(0))
+    # unicos_acum
+    fila_datos.append(str(dato.unicos_acumulados))
+
+
+def rellenar_pase_vacio(dia_ini, fila_datos):
+    # Dia del repo
+    fila_datos.append(dia_ini)
+    # No hay hora del pase
+    fila_datos.append("N/A")
+    # impactos_dia
+    fila_datos.append(str(0))
+    # impactos_acum
+    fila_datos.append(str(0))
+    # usuarios_dia
+    fila_datos.append(str(0))
+    # usuarios_dia_dif
+    fila_datos.append(str(0))
+    # unicos_acum
+    fila_datos.append(str(0))
 
 
 def cargar_repos(args, logger):
